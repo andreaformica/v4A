@@ -20,6 +20,17 @@ vcl 4.1;
         cluster.add_backend(crest, 1);
     }
 
+    sub vcl_hash {
+        # Normal hashing
+        hash_data(req.url);
+        
+        # Include the X-Crest-Query header in the cache key if present
+        if (req.http.X-Crest-Query) {
+            hash_data(req.http.X-Crest-Query);
+        }
+        
+        return (lookup);
+    }
     
     sub vcl_recv {
         # Handle PURGE requests - invalidate specific URL
@@ -28,6 +39,11 @@ vcl 4.1;
                 return (synth(405, "PURGE not allowed from " + client.ip));
             }
             return (purge);
+        }
+
+        # Normalize X-Crest-Query header
+        if (req.http.X-Crest-Query) {
+            set req.http.X-Crest-Query = std.tolower(req.http.X-Crest-Query);
         }
 
         # Handle BAN requests - invalidate by pattern
